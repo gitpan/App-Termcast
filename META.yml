@@ -1,0 +1,16 @@
+---
+abstract: 'broadcast your terminal sessions for remote viewing'
+author:
+  - 'Jesse Luehrs <doy at tozt dot net>'
+generated_by: 'Dist::Zilla::Plugin::MetaYAML version 1.091440'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: App-Termcast
+requires:
+  IO::Pty::Easy: 0.07
+  Moose: 0
+  MooseX::Getopt: 0
+  Term::ReadKey: 0
+version: 0.01_01

@@ -1,0 +1,10 @@
+Changes
+LICENSE
+MANIFEST
+META.yml
+Makefile.PL
+README
+bin/termcast
+dist.ini
+lib/App/Termcast.pm
+t/000-load.t
