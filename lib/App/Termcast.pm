@@ -1,5 +1,5 @@
 package App::Termcast;
-our $VERSION = '0.01_01';
+our $VERSION = '0.01_02';
 
 use Moose;
 use IO::Pty::Easy;
@@ -13,7 +13,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.01_01
+version 0.01_02
 
 =head1 SYNOPSIS
 
@@ -71,13 +71,13 @@ sub run {
     my ($rin, $rout) = '';
     vec($rin, fileno(STDIN) ,1) = 1;
     vec($rin, $ptyfd, 1) = 1;
-    ReadMode 4;
+    ReadMode 5;
     while (1) {
         my $ready = select($rout = $rin, undef, undef, undef);
         if (vec($rout, fileno(STDIN), 1)) {
             my $buf;
             sysread STDIN, $buf, 4096;
-            if (!$buf) {
+            if (!defined $buf || length $buf == 0) {
                 warn "Error reading from stdin: $!" unless defined $buf;
                 last;
             }
@@ -85,7 +85,7 @@ sub run {
         }
         if (vec($rout, $ptyfd, 1)) {
             my $buf = $pty->read(0);
-            if (!$buf) {
+            if (!defined $buf || length $buf == 0) {
                 warn "Error reading from pty: $!" unless defined $buf;
                 last;
             }

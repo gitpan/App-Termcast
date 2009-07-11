@@ -13,4 +13,4 @@ requires:
   Moose: 0
   MooseX::Getopt: 0
   Term::ReadKey: 0
-version: 0.01_01
+version: 0.01_02

@@ -9,7 +9,7 @@ WriteMakefile(
   NAME      => 'App::Termcast',
   AUTHOR    => 'Jesse\ Luehrs\ \<doy\ at\ tozt\ dot\ net\>',
   ABSTRACT  => 'broadcast\ your\ terminal\ sessions\ for\ remote\ viewing',
-  VERSION   => '0.01_01',
+  VERSION   => '0.01_02',
   EXE_FILES => [ qw(bin/termcast) ],
   (eval { ExtUtils::MakeMaker->VERSION(6.21) } ? (LICENSE => 'perl') : ()),
   PREREQ_PM    => {
