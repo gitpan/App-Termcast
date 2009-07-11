@@ -1,5 +1,5 @@
 package App::Termcast;
-our $VERSION = '0.01_02';
+our $VERSION = '0.01';
 
 use Moose;
 use IO::Pty::Easy;
@@ -13,7 +13,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.01_02
+version 0.01
 
 =head1 SYNOPSIS
 
@@ -63,6 +63,7 @@ sub run {
     my $socket = IO::Socket::INET->new(PeerAddr => $self->host,
                                        PeerPort => $self->port);
     $socket->write('hello '.$self->user.' '.$self->password."\n");
+    my $sockfd = fileno($socket);
 
     my $pty = IO::Pty::Easy->new(raw => 0);
     $pty->spawn(@argv);
@@ -71,6 +72,7 @@ sub run {
     my ($rin, $rout) = '';
     vec($rin, fileno(STDIN) ,1) = 1;
     vec($rin, $ptyfd, 1) = 1;
+    vec($rin, $sockfd, 1) = 1;
     ReadMode 5;
     while (1) {
         my $ready = select($rout = $rin, undef, undef, undef);
@@ -92,6 +94,15 @@ sub run {
             syswrite STDOUT, $buf;
             $socket->write($buf);
         }
+        if (vec($rout, $sockfd, 1)) {
+            my $buf;
+            $socket->recv($buf, 4096);
+            if (!defined $buf || length $buf == 0) {
+                warn "Error reading from socket: $!" unless defined $buf;
+                last;
+            }
+            # XXX: do something with this? (watcher notification, etc)
+        }
     }
     ReadMode 0;
 }
@@ -101,11 +112,11 @@ no Moose;
 
 =head1 TODO
 
-Tests! Need to figure out a good way to test this.
-
 Factor some stuff out so applications can call this standalone?
 
 Use L<MooseX::SimpleConfig> to make configuration easier.
+
+Do something about the watcher notifications that the termcast server sends.
 
 =head1 BUGS
 
