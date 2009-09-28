@@ -9,11 +9,12 @@ WriteMakefile(
   NAME      => 'App::Termcast',
   AUTHOR    => 'Jesse\ Luehrs\ \<doy\ at\ tozt\ dot\ net\>',
   ABSTRACT  => 'broadcast\ your\ terminal\ sessions\ for\ remote\ viewing',
-  VERSION   => '0.01',
+  VERSION   => '0.02',
   EXE_FILES => [ qw(bin/termcast) ],
   (eval { ExtUtils::MakeMaker->VERSION(6.21) } ? (LICENSE => 'perl') : ()),
   PREREQ_PM    => {
     "MooseX::Getopt" => '0',
+    "Scope::Guard" => '0',
     "IO::Pty::Easy" => '0.07',
     "Term::ReadKey" => '0',
     "Moose" => '0',

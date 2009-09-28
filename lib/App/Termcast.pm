@@ -1,11 +1,12 @@
 package App::Termcast;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use Moose;
 use IO::Pty::Easy;
 use IO::Socket::INET;
+use Scope::Guard;
 use Term::ReadKey;
-with 'MooseX::Getopt';
+with 'MooseX::Getopt::Dashes';
 
 =head1 NAME
 
@@ -13,7 +14,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
@@ -52,7 +53,24 @@ has password => (
     is      => 'rw',
     isa     => 'Str',
     default => 'asdf', # really unimportant
-    documentation => 'Password for the termcast server (mostly unimportant)',
+    documentation => "Password for the termcast server\n"
+                   . "                              (mostly unimportant)",
+);
+
+has bell_on_watcher => (
+    is      => 'rw',
+    isa     => 'Bool',
+    default => 0,
+    documentation => "Send a terminal bell when a watcher connects\n"
+                   . "                              or disconnects",
+);
+
+has _got_winch => (
+    traits   => ['NoGetopt'],
+    is       => 'rw',
+    isa      => 'Bool',
+    default  => 0,
+    init_arg => undef,
 );
 
 sub run {
@@ -74,13 +92,20 @@ sub run {
     vec($rin, $ptyfd, 1) = 1;
     vec($rin, $sockfd, 1) = 1;
     ReadMode 5;
+    my $guard = Scope::Guard->new(sub { ReadMode 0 });
+    local $SIG{WINCH} = sub { $self->_got_winch(1) };
     while (1) {
         my $ready = select($rout = $rin, undef, undef, undef);
         if (vec($rout, fileno(STDIN), 1)) {
             my $buf;
             sysread STDIN, $buf, 4096;
             if (!defined $buf || length $buf == 0) {
-                warn "Error reading from stdin: $!" unless defined $buf;
+                if ($self->_got_winch) {
+                    $self->_got_winch(0);
+                    redo;
+                }
+                Carp::croak("Error reading from stdin: $!")
+                    unless defined $buf;
                 last;
             }
             $pty->write($buf);
@@ -88,7 +113,12 @@ sub run {
         if (vec($rout, $ptyfd, 1)) {
             my $buf = $pty->read(0);
             if (!defined $buf || length $buf == 0) {
-                warn "Error reading from pty: $!" unless defined $buf;
+                if ($self->_got_winch) {
+                    $self->_got_winch(0);
+                    redo;
+                }
+                Carp::croak("Error reading from pty: $!")
+                    unless defined $buf;
                 last;
             }
             syswrite STDOUT, $buf;
@@ -98,13 +128,20 @@ sub run {
             my $buf;
             $socket->recv($buf, 4096);
             if (!defined $buf || length $buf == 0) {
-                warn "Error reading from socket: $!" unless defined $buf;
+                if ($self->_got_winch) {
+                    $self->_got_winch(0);
+                    redo;
+                }
+                Carp::croak("Error reading from socket: $!")
+                    unless defined $buf;
                 last;
             }
-            # XXX: do something with this? (watcher notification, etc)
+            if ($self->bell_on_watcher) {
+                # something better to do here?
+                syswrite STDOUT, "\a";
+            }
         }
     }
-    ReadMode 0;
 }
 
 __PACKAGE__->meta->make_immutable;
