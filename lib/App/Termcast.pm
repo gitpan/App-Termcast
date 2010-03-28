@@ -1,6 +1,5 @@
 package App::Termcast;
-our $VERSION = '0.02';
-
+our $VERSION = '0.03';
 use Moose;
 use IO::Pty::Easy;
 use IO::Socket::INET;
@@ -14,7 +13,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 
@@ -65,6 +64,13 @@ has bell_on_watcher => (
                    . "                              or disconnects",
 );
 
+has timeout => (
+    is      => 'rw',
+    isa     => 'Int',
+    default => 5,
+    documentation => "Timeout length for the connection to the termcast server",
+);
+
 has _got_winch => (
     traits   => ['NoGetopt'],
     is       => 'rw',
@@ -73,30 +79,99 @@ has _got_winch => (
     init_arg => undef,
 );
 
-sub run {
+has socket => (
+    traits     => ['NoGetopt'],
+    is         => 'rw',
+    isa        => 'IO::Socket::INET',
+    lazy_build => 1,
+    init_arg   => undef,
+);
+
+sub _build_socket {
+    my $self = shift;
+    my $socket = IO::Socket::INET->new(PeerAddr => $self->host,
+                                       PeerPort => $self->port);
+    die "Couldn't connect to " . $self->host . ": $!"
+        unless $socket;
+    $socket->write('hello '.$self->user.' '.$self->password."\n");
+    return $socket;
+}
+
+has pty => (
+    traits     => ['NoGetopt'],
+    is         => 'rw',
+    isa        => 'IO::Pty::Easy',
+    lazy_build => 1,
+    init_arg   => undef,
+);
+
+sub _build_pty {
     my $self = shift;
     my @argv = @{ $self->extra_argv };
     push @argv, ($ENV{SHELL} || '/bin/sh') if !@argv;
-
-    my $socket = IO::Socket::INET->new(PeerAddr => $self->host,
-                                       PeerPort => $self->port);
-    $socket->write('hello '.$self->user.' '.$self->password."\n");
-    my $sockfd = fileno($socket);
-
     my $pty = IO::Pty::Easy->new(raw => 0);
     $pty->spawn(@argv);
-    my $ptyfd = fileno($pty);
+    return $pty;
+}
 
-    my ($rin, $rout) = '';
-    vec($rin, fileno(STDIN) ,1) = 1;
-    vec($rin, $ptyfd, 1) = 1;
+sub _build_select_args {
+    my $self = shift;
+    my $sockfd = fileno($self->socket);
+    my $ptyfd  = fileno($self->pty);
+    my $infd   = fileno(STDIN);
+
+    my $rin = '';
+    vec($rin, $infd   ,1) = 1;
+    vec($rin, $ptyfd,  1) = 1;
     vec($rin, $sockfd, 1) = 1;
+
+    my $win = '';
+    vec($win, $sockfd, 1) = 1;
+
+    my $ein = '';
+    vec($ein, $sockfd, 1) = 1;
+
+    return ($rin, $win, $ein);
+}
+
+sub _socket_ready {
+    my $self = shift;
+    my ($vec) = @_;
+    vec($vec, fileno($self->socket), 1);
+}
+
+sub _pty_ready {
+    my $self = shift;
+    my ($vec) = @_;
+    vec($vec, fileno($self->pty), 1);
+}
+
+sub _in_ready {
+    my $self = shift;
+    my ($vec) = @_;
+    vec($vec, fileno(STDIN), 1);
+}
+
+sub run {
+    my $self = shift;
+
     ReadMode 5;
     my $guard = Scope::Guard->new(sub { ReadMode 0 });
+
+    my ($rin, $win, $ein) = $self->_build_select_args;
+    my ($rout, $wout, $eout);
+
     local $SIG{WINCH} = sub { $self->_got_winch(1) };
     while (1) {
-        my $ready = select($rout = $rin, undef, undef, undef);
-        if (vec($rout, fileno(STDIN), 1)) {
+        select($rout = $rin, undef, $eout = $ein, undef);
+
+        if ($self->_socket_ready($eout)) {
+            Carp::carp("Lost connection to server ($!), reconnecting...");
+            $self->clear_socket;
+            ($rin, $win, $ein) = $self->_build_select_args;
+        }
+
+        if ($self->_in_ready($rout)) {
             my $buf;
             sysread STDIN, $buf, 4096;
             if (!defined $buf || length $buf == 0) {
@@ -108,10 +183,12 @@ sub run {
                     unless defined $buf;
                 last;
             }
-            $pty->write($buf);
+
+            $self->pty->write($buf);
         }
-        if (vec($rout, $ptyfd, 1)) {
-            my $buf = $pty->read(0);
+
+        if ($self->_pty_ready($rout)) {
+            my $buf = $self->pty->read(0);
             if (!defined $buf || length $buf == 0) {
                 if ($self->_got_winch) {
                     $self->_got_winch(0);
@@ -121,12 +198,21 @@ sub run {
                     unless defined $buf;
                 last;
             }
+
             syswrite STDOUT, $buf;
-            $socket->write($buf);
+
+            my $ready = select(undef, $wout = $win, $eout = $ein, $self->timeout);
+            if (!$ready || $self->_socket_ready($eout)) {
+                Carp::carp("Lost connection to server ($!), reconnecting...");
+                $self->clear_socket;
+                ($rin, $win, $ein) = $self->_build_select_args;
+            }
+            $self->socket->write($buf);
         }
-        if (vec($rout, $sockfd, 1)) {
+
+        if ($self->_socket_ready($rout)) {
             my $buf;
-            $socket->recv($buf, 4096);
+            $self->socket->recv($buf, 4096);
             if (!defined $buf || length $buf == 0) {
                 if ($self->_got_winch) {
                     $self->_got_winch(0);
@@ -136,6 +222,7 @@ sub run {
                     unless defined $buf;
                 last;
             }
+
             if ($self->bell_on_watcher) {
                 # something better to do here?
                 syswrite STDOUT, "\a";
@@ -201,7 +288,7 @@ L<http://search.cpan.org/dist/App-Termcast>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2009 by Jesse Luehrs.
+This software is copyright (c) 2009-2010 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as perl itself.

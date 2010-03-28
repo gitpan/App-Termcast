@@ -1,9 +1,15 @@
 #!/usr/bin/env perl
+use strict;
+use warnings;
 use App::Termcast;
 
 =head1 NAME
 
 termcast - broadcast your terminal sessions for remote viewing
+
+=head1 VERSION
+
+version 0.03
 
 =head1 SYNOPSIS
 
@@ -23,7 +29,7 @@ App::Termcast->new_with_options->run;
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2009 by Jesse Luehrs.
+This software is copyright (c) 2009-2010 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as perl itself.

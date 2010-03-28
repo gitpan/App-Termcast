@@ -2,7 +2,10 @@
 abstract: 'broadcast your terminal sessions for remote viewing'
 author:
   - 'Jesse Luehrs <doy at tozt dot net>'
-generated_by: 'Dist::Zilla::Plugin::MetaYAML version 1.091440'
+build_requires: {}
+configure_requires:
+  ExtUtils::MakeMaker: 6.11
+generated_by: 'Dist::Zilla version 1.100711'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -14,4 +17,4 @@ requires:
   MooseX::Getopt: 0
   Scope::Guard: 0
   Term::ReadKey: 0
-version: 0.02
+version: 0.03

@@ -10,3 +10,5 @@ lib/App/Termcast.pm
 t/000-load.t
 t/001-basic.t
 t/002-read-write.t
+t/release-pod-coverage.t
+t/release-pod-syntax.t
