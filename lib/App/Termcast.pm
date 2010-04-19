@@ -1,5 +1,7 @@
 package App::Termcast;
-our $VERSION = '0.03';
+BEGIN {
+  $App::Termcast::VERSION = '0.04';
+}
 use Moose;
 use IO::Pty::Easy;
 use IO::Socket::INET;
@@ -13,26 +15,43 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.03
+version 0.04
 
 =head1 SYNOPSIS
 
-  termcast [options] [command]
+  my $tc = App::Termcast->new(user => 'foo');
+  $tc->run('bash');
 
 =head1 DESCRIPTION
 
 App::Termcast is a client for the L<http://termcast.org/> service, which allows
-broadcasting of a terminal session for remote viewing. It will either run a
-command given on the command line, or a shell.
+broadcasting of a terminal session for remote viewing.
+
+=cut
+
+=head1 ATTRIBUTES
+
+=cut
+
+=head2 host
+
+Server to connect to (defaults to noway.ratry.ru, the host for the termcast.org
+service).
 
 =cut
 
 has host => (
     is      => 'rw',
     isa     => 'Str',
-    default => 'noway.ratry.ru',
+    default => 'termcast.org',
     documentation => 'Hostname of the termcast server to connect to',
 );
+
+=head2 port
+
+Port to use on the termcast server (defaults to 31337).
+
+=cut
 
 has port => (
     is      => 'rw',
@@ -41,12 +60,28 @@ has port => (
     documentation => 'Port to connect to on the termcast server',
 );
 
+=head2 user
+
+Username to use (defaults to the local username).
+
+=cut
+
 has user => (
     is      => 'rw',
     isa     => 'Str',
     default => sub { $ENV{USER} },
     documentation => 'Username for the termcast server',
 );
+
+=head2 password
+
+Password for the given user. The password is set the first time that username
+connects, and must be the same every subsequent time. It is sent in plaintext
+as part of the connection process, so don't use an important password here.
+Defaults to 'asdf' since really, a password isn't all that important unless
+you're worried about being impersonated.
+
+=cut
 
 has password => (
     is      => 'rw',
@@ -56,6 +91,13 @@ has password => (
                    . "                              (mostly unimportant)",
 );
 
+=head2 bell_on_watcher
+
+Whether or not to send a bell to the terminal when a watcher connects or
+disconnects. Defaults to false.
+
+=cut
+
 has bell_on_watcher => (
     is      => 'rw',
     isa     => 'Bool',
@@ -63,6 +105,13 @@ has bell_on_watcher => (
     documentation => "Send a terminal bell when a watcher connects\n"
                    . "                              or disconnects",
 );
+
+=head2 timeout
+
+How long in seconds to use for the timeout to the termcast server. Defaults to
+5.
+
+=cut
 
 has timeout => (
     is      => 'rw',
@@ -93,7 +142,7 @@ sub _build_socket {
                                        PeerPort => $self->port);
     die "Couldn't connect to " . $self->host . ": $!"
         unless $socket;
-    $socket->write('hello '.$self->user.' '.$self->password."\n");
+    $socket->syswrite('hello '.$self->user.' '.$self->password."\n");
     return $socket;
 }
 
@@ -106,30 +155,29 @@ has pty => (
 );
 
 sub _build_pty {
-    my $self = shift;
-    my @argv = @{ $self->extra_argv };
-    push @argv, ($ENV{SHELL} || '/bin/sh') if !@argv;
-    my $pty = IO::Pty::Easy->new(raw => 0);
-    $pty->spawn(@argv);
-    return $pty;
+    IO::Pty::Easy->new(raw => 0);
 }
 
 sub _build_select_args {
     my $self = shift;
-    my $sockfd = fileno($self->socket);
-    my $ptyfd  = fileno($self->pty);
-    my $infd   = fileno(STDIN);
+    my @for = @_ ? @_ : (qw(socket pty input));
+    my %for = map { $_ => 1 } @for;
 
-    my $rin = '';
-    vec($rin, $infd   ,1) = 1;
-    vec($rin, $ptyfd,  1) = 1;
-    vec($rin, $sockfd, 1) = 1;
-
-    my $win = '';
-    vec($win, $sockfd, 1) = 1;
-
-    my $ein = '';
-    vec($ein, $sockfd, 1) = 1;
+    my ($rin, $win, $ein) = ('', '', '');
+    if ($for{socket}) {
+        my $sockfd = fileno($self->socket);
+        vec($rin, $sockfd, 1) = 1;
+        vec($win, $sockfd, 1) = 1;
+        vec($ein, $sockfd, 1) = 1;
+    }
+    if ($for{pty}) {
+        my $ptyfd  = fileno($self->pty);
+        vec($rin, $ptyfd,  1) = 1;
+    }
+    if ($for{input}) {
+        my $infd   = fileno(STDIN);
+        vec($rin, $infd   ,1) = 1;
+    }
 
     return ($rin, $win, $ein);
 }
@@ -152,23 +200,57 @@ sub _in_ready {
     vec($vec, fileno(STDIN), 1);
 }
 
+=head1 METHODS
+
+=cut
+
+=head2 write_to_termcast $BUF
+
+Sends C<$BUF> to the termcast server.
+
+=cut
+
+sub write_to_termcast {
+    my $self = shift;
+    my ($buf) = @_;
+
+    my ($rin, $win, $ein) = $self->_build_select_args('socket');
+    my ($rout, $wout, $eout);
+    my $ready = select(undef, $wout = $win, $eout = $ein, $self->timeout);
+    if (!$ready || $self->_socket_ready($eout)) {
+        Carp::carp("Lost connection to server ($!), reconnecting...");
+        $self->clear_socket;
+        return $self->socket_write(@_);
+    }
+    $self->socket->syswrite($buf);
+}
+
+=head2 run @ARGV
+
+Runs the given command in the local terminal as though via C<exec>, but streams
+all output from that command to the termcast server. The command may be an
+interactive program (in fact, this is the most useful case).
+
+=cut
+
 sub run {
     my $self = shift;
+    my @cmd = @_;
 
     ReadMode 5;
     my $guard = Scope::Guard->new(sub { ReadMode 0 });
 
-    my ($rin, $win, $ein) = $self->_build_select_args;
-    my ($rout, $wout, $eout);
+    $self->pty->spawn(@cmd) || die "Couldn't spawn @cmd: $!";
 
     local $SIG{WINCH} = sub { $self->_got_winch(1) };
     while (1) {
+        my ($rin, $win, $ein) = $self->_build_select_args;
+        my ($rout, $wout, $eout);
         select($rout = $rin, undef, $eout = $ein, undef);
 
         if ($self->_socket_ready($eout)) {
             Carp::carp("Lost connection to server ($!), reconnecting...");
             $self->clear_socket;
-            ($rin, $win, $ein) = $self->_build_select_args;
         }
 
         if ($self->_in_ready($rout)) {
@@ -201,13 +283,7 @@ sub run {
 
             syswrite STDOUT, $buf;
 
-            my $ready = select(undef, $wout = $win, $eout = $ein, $self->timeout);
-            if (!$ready || $self->_socket_ready($eout)) {
-                Carp::carp("Lost connection to server ($!), reconnecting...");
-                $self->clear_socket;
-                ($rin, $win, $ein) = $self->_build_select_args;
-            }
-            $self->socket->write($buf);
+            $self->write_to_termcast($buf);
         }
 
         if ($self->_socket_ready($rout)) {
@@ -220,7 +296,6 @@ sub run {
                 }
                 Carp::croak("Error reading from socket: $!")
                     unless defined $buf;
-                last;
             }
 
             if ($self->bell_on_watcher) {
@@ -236,11 +311,7 @@ no Moose;
 
 =head1 TODO
 
-Factor some stuff out so applications can call this standalone?
-
 Use L<MooseX::SimpleConfig> to make configuration easier.
-
-Do something about the watcher notifications that the termcast server sends.
 
 =head1 BUGS
 

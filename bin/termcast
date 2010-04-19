@@ -7,21 +7,21 @@ use App::Termcast;
 
 termcast - broadcast your terminal sessions for remote viewing
 
-=head1 VERSION
-
-version 0.03
-
 =head1 SYNOPSIS
 
   termcast [options] [command]
 
 =head1 DESCRIPTION
 
-See L<App::Termcast> for documentation.
+Runs C<command> (or a shell, if the command isn't given), while broadcasting it
+to a termcast server. See L<App::Termcast> for options documentation.
 
 =cut
 
-App::Termcast->new_with_options->run;
+my $tc = App::Termcast->new_with_options;
+my @argv = @{ $tc->extra_argv };
+push @argv, ($ENV{SHELL} || '/bin/sh') if !@argv;
+App::Termcast->new_with_options->run(@argv);
 
 =head1 AUTHOR
 

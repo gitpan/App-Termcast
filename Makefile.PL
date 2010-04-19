@@ -4,7 +4,7 @@ use warnings;
 
 
 
-use ExtUtils::MakeMaker 6.11;
+use ExtUtils::MakeMaker 6.31;
 
 
 
@@ -15,15 +15,16 @@ my %WriteMakefileArgs = (
                        'NAME' => 'App::Termcast',
                        'DISTNAME' => 'App-Termcast',
                        'CONFIGURE_REQUIRES' => {
-                                                 'ExtUtils::MakeMaker' => '6.11'
+                                                 'ExtUtils::MakeMaker' => '6.31'
                                                },
                        'AUTHOR' => 'Jesse Luehrs <doy at tozt dot net>',
                        'BUILD_REQUIRES' => {},
                        'ABSTRACT' => 'broadcast your terminal sessions for remote viewing',
                        'EXE_FILES' => [
-                                        'bin/termcast'
+                                        'bin/termcast',
+                                        'bin/stream_ttyrec'
                                       ],
-                       'VERSION' => '0.03',
+                       'VERSION' => '0.04',
                        'PREREQ_PM' => {
                                         'MooseX::Getopt' => '0',
                                         'Scope::Guard' => '0',
@@ -35,8 +36,11 @@ my %WriteMakefileArgs = (
                      );
 
 
-delete $WriteMakefileArgs{LICENSE}
-  unless eval { ExtUtils::MakeMaker->VERSION(6.31) };
+delete $WriteMakefileArgs{BUILD_REQUIRES}
+  unless eval { ExtUtils::MakeMaker->VERSION(6.56) };
+
+delete $WriteMakefileArgs{CONFIGURE_REQUIRES}
+  unless eval { ExtUtils::MakeMaker->VERSION(6.52) };
 
 WriteMakefile(%WriteMakefileArgs);
 

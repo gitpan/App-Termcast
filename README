@@ -1,7 +1,7 @@
 
 
-This archive contains the distribution App-Termcast, version
-0.03:
+This archive contains the distribution App-Termcast,
+version 0.04:
 
   broadcast your terminal sessions for remote viewing
 
@@ -9,4 +9,5 @@ This software is copyright (c) 2010 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
+
 
