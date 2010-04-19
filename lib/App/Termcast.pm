@@ -1,6 +1,6 @@
 package App::Termcast;
 BEGIN {
-  $App::Termcast::VERSION = '0.04';
+  $App::Termcast::VERSION = '0.05';
 }
 use Moose;
 use IO::Pty::Easy;
@@ -15,7 +15,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.04
+version 0.05
 
 =head1 SYNOPSIS
 
@@ -43,7 +43,7 @@ service).
 has host => (
     is      => 'rw',
     isa     => 'Str',
-    default => 'termcast.org',
+    default => 'noway.ratry.ru',
     documentation => 'Hostname of the termcast server to connect to',
 );
 

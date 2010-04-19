@@ -18,4 +18,4 @@ requires:
   MooseX::Getopt: 0
   Scope::Guard: 0
   Term::ReadKey: 0
-version: 0.04
+version: 0.05

@@ -24,7 +24,7 @@ my %WriteMakefileArgs = (
                                         'bin/termcast',
                                         'bin/stream_ttyrec'
                                       ],
-                       'VERSION' => '0.04',
+                       'VERSION' => '0.05',
                        'PREREQ_PM' => {
                                         'MooseX::Getopt' => '0',
                                         'Scope::Guard' => '0',
