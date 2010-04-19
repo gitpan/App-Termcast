@@ -1,6 +1,6 @@
 package App::Termcast;
 BEGIN {
-  $App::Termcast::VERSION = '0.05';
+  $App::Termcast::VERSION = '0.06';
 }
 use Moose;
 use IO::Pty::Easy;
@@ -15,7 +15,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -220,7 +220,7 @@ sub write_to_termcast {
     if (!$ready || $self->_socket_ready($eout)) {
         Carp::carp("Lost connection to server ($!), reconnecting...");
         $self->clear_socket;
-        return $self->socket_write(@_);
+        return $self->write_to_termcast(@_);
     }
     $self->socket->syswrite($buf);
 }
