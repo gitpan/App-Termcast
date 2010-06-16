@@ -1,44 +1,18 @@
 package App::Termcast;
 BEGIN {
-  $App::Termcast::VERSION = '0.06';
+  $App::Termcast::VERSION = '0.07';
 }
 use Moose;
+# ABSTRACT: broadcast your terminal sessions for remote viewing
+
+with 'MooseX::Getopt::Dashes';
+
 use IO::Pty::Easy;
 use IO::Socket::INET;
 use Scope::Guard;
 use Term::ReadKey;
-with 'MooseX::Getopt::Dashes';
 
-=head1 NAME
 
-App::Termcast - broadcast your terminal sessions for remote viewing
-
-=head1 VERSION
-
-version 0.06
-
-=head1 SYNOPSIS
-
-  my $tc = App::Termcast->new(user => 'foo');
-  $tc->run('bash');
-
-=head1 DESCRIPTION
-
-App::Termcast is a client for the L<http://termcast.org/> service, which allows
-broadcasting of a terminal session for remote viewing.
-
-=cut
-
-=head1 ATTRIBUTES
-
-=cut
-
-=head2 host
-
-Server to connect to (defaults to noway.ratry.ru, the host for the termcast.org
-service).
-
-=cut
 
 has host => (
     is      => 'rw',
@@ -47,11 +21,6 @@ has host => (
     documentation => 'Hostname of the termcast server to connect to',
 );
 
-=head2 port
-
-Port to use on the termcast server (defaults to 31337).
-
-=cut
 
 has port => (
     is      => 'rw',
@@ -60,11 +29,6 @@ has port => (
     documentation => 'Port to connect to on the termcast server',
 );
 
-=head2 user
-
-Username to use (defaults to the local username).
-
-=cut
 
 has user => (
     is      => 'rw',
@@ -73,15 +37,6 @@ has user => (
     documentation => 'Username for the termcast server',
 );
 
-=head2 password
-
-Password for the given user. The password is set the first time that username
-connects, and must be the same every subsequent time. It is sent in plaintext
-as part of the connection process, so don't use an important password here.
-Defaults to 'asdf' since really, a password isn't all that important unless
-you're worried about being impersonated.
-
-=cut
 
 has password => (
     is      => 'rw',
@@ -91,12 +46,6 @@ has password => (
                    . "                              (mostly unimportant)",
 );
 
-=head2 bell_on_watcher
-
-Whether or not to send a bell to the terminal when a watcher connects or
-disconnects. Defaults to false.
-
-=cut
 
 has bell_on_watcher => (
     is      => 'rw',
@@ -106,12 +55,6 @@ has bell_on_watcher => (
                    . "                              or disconnects",
 );
 
-=head2 timeout
-
-How long in seconds to use for the timeout to the termcast server. Defaults to
-5.
-
-=cut
 
 has timeout => (
     is      => 'rw',
@@ -128,6 +71,18 @@ has _got_winch => (
     init_arg => undef,
 );
 
+has establishment_message => (
+    traits     => ['NoGetopt'],
+    is         => 'ro',
+    isa        => 'Str',
+    lazy_build => 1,
+);
+
+sub _build_establishment_message {
+    my $self = shift;
+    return sprintf("hello %s %s\n", $self->user, $self->password);
+}
+
 has socket => (
     traits     => ['NoGetopt'],
     is         => 'rw',
@@ -142,7 +97,7 @@ sub _build_socket {
                                        PeerPort => $self->port);
     die "Couldn't connect to " . $self->host . ": $!"
         unless $socket;
-    $socket->syswrite('hello '.$self->user.' '.$self->password."\n");
+    $socket->syswrite($self->establishment_message);
     return $socket;
 }
 
@@ -200,15 +155,6 @@ sub _in_ready {
     vec($vec, fileno(STDIN), 1);
 }
 
-=head1 METHODS
-
-=cut
-
-=head2 write_to_termcast $BUF
-
-Sends C<$BUF> to the termcast server.
-
-=cut
 
 sub write_to_termcast {
     my $self = shift;
@@ -225,13 +171,6 @@ sub write_to_termcast {
     $self->socket->syswrite($buf);
 }
 
-=head2 run @ARGV
-
-Runs the given command in the local terminal as though via C<exec>, but streams
-all output from that command to the termcast server. The command may be an
-interactive program (in fact, this is the most useful case).
-
-=cut
 
 sub run {
     my $self = shift;
@@ -309,6 +248,75 @@ sub run {
 __PACKAGE__->meta->make_immutable;
 no Moose;
 
+
+1;
+
+__END__
+=pod
+
+=head1 NAME
+
+App::Termcast - broadcast your terminal sessions for remote viewing
+
+=head1 VERSION
+
+version 0.07
+
+=head1 SYNOPSIS
+
+  my $tc = App::Termcast->new(user => 'foo');
+  $tc->run('bash');
+
+=head1 DESCRIPTION
+
+App::Termcast is a client for the L<http://termcast.org/> service, which allows
+broadcasting of a terminal session for remote viewing.
+
+=head1 ATTRIBUTES
+
+=head2 host
+
+Server to connect to (defaults to noway.ratry.ru, the host for the termcast.org
+service).
+
+=head2 port
+
+Port to use on the termcast server (defaults to 31337).
+
+=head2 user
+
+Username to use (defaults to the local username).
+
+=head2 password
+
+Password for the given user. The password is set the first time that username
+connects, and must be the same every subsequent time. It is sent in plaintext
+as part of the connection process, so don't use an important password here.
+Defaults to 'asdf' since really, a password isn't all that important unless
+you're worried about being impersonated.
+
+=head2 bell_on_watcher
+
+Whether or not to send a bell to the terminal when a watcher connects or
+disconnects. Defaults to false.
+
+=head2 timeout
+
+How long in seconds to use for the timeout to the termcast server. Defaults to
+5.
+
+=head1 METHODS
+
+=head2 write_to_termcast $BUF
+
+Sends C<$BUF> to the termcast server.
+
+=head2 run @ARGV
+
+Runs the given command in the local terminal as though via C<exec>, but streams
+all output from that command to the termcast server. The command may be an
+interactive program (in fact, this is the most useful case).
+
 =head1 TODO
 
 Use L<MooseX::SimpleConfig> to make configuration easier.
@@ -323,7 +331,13 @@ L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=App-Termcast>.
 
 =head1 SEE ALSO
 
+=over 4
+
+=item *
+
 L<http://termcast.org/>
+
+=back
 
 =head1 SUPPORT
 
@@ -359,11 +373,10 @@ L<http://search.cpan.org/dist/App-Termcast>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2009-2010 by Jesse Luehrs.
+This software is copyright (c) 2010 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
-the same terms as perl itself.
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 
-1;

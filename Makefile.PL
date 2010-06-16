@@ -9,35 +9,45 @@ use ExtUtils::MakeMaker 6.31;
 
 
 my %WriteMakefileArgs = (
-                       'test' => {
-                                   'TESTS' => 't/*.t'
-                                 },
-                       'NAME' => 'App::Termcast',
-                       'DISTNAME' => 'App-Termcast',
-                       'CONFIGURE_REQUIRES' => {
-                                                 'ExtUtils::MakeMaker' => '6.31'
-                                               },
-                       'AUTHOR' => 'Jesse Luehrs <doy at tozt dot net>',
-                       'BUILD_REQUIRES' => {},
-                       'ABSTRACT' => 'broadcast your terminal sessions for remote viewing',
-                       'EXE_FILES' => [
-                                        'bin/termcast',
-                                        'bin/stream_ttyrec'
-                                      ],
-                       'VERSION' => '0.06',
-                       'PREREQ_PM' => {
-                                        'MooseX::Getopt' => '0',
-                                        'Scope::Guard' => '0',
-                                        'IO::Pty::Easy' => '0.07',
-                                        'Term::ReadKey' => '0',
-                                        'Moose' => '0'
-                                      },
-                       'LICENSE' => 'perl'
-                     );
+  'ABSTRACT' => 'broadcast your terminal sessions for remote viewing',
+  'AUTHOR' => 'Jesse Luehrs <doy at tozt dot net>',
+  'BUILD_REQUIRES' => {},
+  'CONFIGURE_REQUIRES' => {
+    'ExtUtils::MakeMaker' => '6.31'
+  },
+  'DISTNAME' => 'App-Termcast',
+  'EXE_FILES' => [
+    'bin/stream_ttyrec',
+    'bin/termcast'
+  ],
+  'LICENSE' => 'perl',
+  'NAME' => 'App::Termcast',
+  'PREREQ_PM' => {
+    'IO::Pty::Easy' => '0.07',
+    'Moose' => '0',
+    'MooseX::Getopt' => '0',
+    'Scope::Guard' => '0',
+    'Term::ReadKey' => '0'
+  },
+  'VERSION' => '0.07',
+  'test' => {
+    'TESTS' => 't/*.t'
+  }
+);
 
 
-delete $WriteMakefileArgs{BUILD_REQUIRES}
-  unless eval { ExtUtils::MakeMaker->VERSION(6.56) };
+unless ( eval { ExtUtils::MakeMaker->VERSION(6.56) } ) {
+  my $br = delete $WriteMakefileArgs{BUILD_REQUIRES};
+  my $pp = $WriteMakefileArgs{PREREQ_PM};
+  for my $mod ( keys %$br ) {
+    if ( exists $pp->{$mod} ) {
+      $pp->{$mod} = $br->{$mod} if $br->{$mod} > $pp->{$mod};
+    }
+    else {
+      $pp->{$mod} = $br->{$mod};
+    }
+  }
+}
 
 delete $WriteMakefileArgs{CONFIGURE_REQUIRES}
   unless eval { ExtUtils::MakeMaker->VERSION(6.52) };
