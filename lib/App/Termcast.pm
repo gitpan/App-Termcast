@@ -1,6 +1,6 @@
 package App::Termcast;
 BEGIN {
-  $App::Termcast::VERSION = '0.07';
+  $App::Termcast::VERSION = '0.08';
 }
 use Moose;
 # ABSTRACT: broadcast your terminal sessions for remote viewing
@@ -93,13 +93,25 @@ has socket => (
 
 sub _build_socket {
     my $self = shift;
-    my $socket = IO::Socket::INET->new(PeerAddr => $self->host,
-                                       PeerPort => $self->port);
-    die "Couldn't connect to " . $self->host . ": $!"
-        unless $socket;
+
+    my $socket;
+    {
+        $socket = IO::Socket::INET->new(PeerAddr => $self->host,
+                                        PeerPort => $self->port);
+        if (!$socket) {
+            Carp::carp "Couldn't connect to " . $self->host . ": $!";
+            sleep 5;
+            redo;
+        }
+    }
+
     $socket->syswrite($self->establishment_message);
     return $socket;
 }
+
+before clear_socket => sub {
+    Carp::carp("Lost connection to server ($!), reconnecting...");
+};
 
 has pty => (
     traits     => ['NoGetopt'],
@@ -164,7 +176,6 @@ sub write_to_termcast {
     my ($rout, $wout, $eout);
     my $ready = select(undef, $wout = $win, $eout = $ein, $self->timeout);
     if (!$ready || $self->_socket_ready($eout)) {
-        Carp::carp("Lost connection to server ($!), reconnecting...");
         $self->clear_socket;
         return $self->write_to_termcast(@_);
     }
@@ -185,10 +196,10 @@ sub run {
     while (1) {
         my ($rin, $win, $ein) = $self->_build_select_args;
         my ($rout, $wout, $eout);
-        select($rout = $rin, undef, $eout = $ein, undef);
+        my $select_res = select($rout = $rin, undef, $eout = $ein, undef);
+        redo if $select_res == -1 && ($!{EAGAIN} || $!{EINTR});
 
         if ($self->_socket_ready($eout)) {
-            Carp::carp("Lost connection to server ($!), reconnecting...");
             $self->clear_socket;
         }
 
@@ -233,8 +244,13 @@ sub run {
                     $self->_got_winch(0);
                     redo;
                 }
-                Carp::croak("Error reading from socket: $!")
-                    unless defined $buf;
+
+                if (defined $buf) {
+                    $self->clear_socket;
+                }
+                else {
+                    Carp::croak("Error reading from socket: $!");
+                }
             }
 
             if ($self->bell_on_watcher) {
@@ -260,7 +276,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.07
+version 0.08
 
 =head1 SYNOPSIS
 
@@ -369,7 +385,7 @@ L<http://search.cpan.org/dist/App-Termcast>
 
 =head1 AUTHOR
 
-  Jesse Luehrs <doy at tozt dot net>
+Jesse Luehrs <doy at tozt dot net>
 
 =head1 COPYRIGHT AND LICENSE
 

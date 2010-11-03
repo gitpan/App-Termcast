@@ -2,10 +2,25 @@
 use strict;
 use warnings;
 use App::Termcast;
+# PODNAME: termcast
+# ABSTRACT: broadcast your terminal sessions for remote viewing
+
+
+my $tc = App::Termcast->new_with_options;
+my @argv = @{ $tc->extra_argv };
+push @argv, ($ENV{SHELL} || '/bin/sh') if !@argv;
+App::Termcast->new_with_options->run(@argv);
+
+__END__
+=pod
 
 =head1 NAME
 
 termcast - broadcast your terminal sessions for remote viewing
+
+=head1 VERSION
+
+version 0.08
 
 =head1 SYNOPSIS
 
@@ -16,20 +31,26 @@ termcast - broadcast your terminal sessions for remote viewing
 Runs C<command> (or a shell, if the command isn't given), while broadcasting it
 to a termcast server. See L<App::Termcast> for options documentation.
 
-=cut
+=head1 SEE ALSO
 
-my $tc = App::Termcast->new_with_options;
-my @argv = @{ $tc->extra_argv };
-push @argv, ($ENV{SHELL} || '/bin/sh') if !@argv;
-App::Termcast->new_with_options->run(@argv);
+=over 4
+
+=item *
+
+L<App::Termcast>
+
+=back
 
 =head1 AUTHOR
 
-  Jesse Luehrs <doy at tozt dot net>
+Jesse Luehrs <doy at tozt dot net>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2009-2010 by Jesse Luehrs.
+This software is copyright (c) 2010 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
-the same terms as perl itself.
+the same terms as the Perl 5 programming language system itself.
+
+=cut
+

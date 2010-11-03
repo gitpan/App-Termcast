@@ -29,7 +29,7 @@ my %WriteMakefileArgs = (
     'Scope::Guard' => '0',
     'Term::ReadKey' => '0'
   },
-  'VERSION' => '0.07',
+  'VERSION' => '0.08',
   'test' => {
     'TESTS' => 't/*.t'
   }

@@ -4,22 +4,9 @@ use warnings;
 use App::Termcast;
 eval { require Term::TtyRec::Plus }
     || die "This script requires the Term::TtyRec::Plus module";
+# PODNAME: stream_ttyrec
+# ABSTRACT: play a ttyrec to a termcast channel
 
-=head1 NAME
-
-stream_ttyrec - play a ttyrec to a termcast channel
-
-=head1 SYNOPSIS
-
-  stream_ttyrec [options] [ttyrec_file]
-
-=head1 DESCRIPTION
-
-This program will stream a ttyrec file to the given termcast channel. The
-ttyrec file may be given on the command line, or it will be read from STDIN.
-See L<App::Termcast> for options documentation.
-
-=cut
 
 my $tc = App::Termcast->new_with_options;
 my ($file) = @{ $tc->extra_argv };
@@ -38,13 +25,47 @@ while (my $frame = $ttyrec->next_frame) {
     $tc->write_to_termcast($frame->{data});
 }
 
+__END__
+=pod
+
+=head1 NAME
+
+stream_ttyrec - play a ttyrec to a termcast channel
+
+=head1 VERSION
+
+version 0.08
+
+=head1 SYNOPSIS
+
+  stream_ttyrec [options] [ttyrec_file]
+
+=head1 DESCRIPTION
+
+This program will stream a ttyrec file to the given termcast channel. The
+ttyrec file may be given on the command line, or it will be read from STDIN.
+See L<App::Termcast> for options documentation.
+
+=head1 SEE ALSO
+
+=over 4
+
+=item *
+
+L<App::Termcast>
+
+=back
+
 =head1 AUTHOR
 
-  Jesse Luehrs <doy at tozt dot net>
+Jesse Luehrs <doy at tozt dot net>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2009-2010 by Jesse Luehrs.
+This software is copyright (c) 2010 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
-the same terms as perl itself.
+the same terms as the Perl 5 programming language system itself.
+
+=cut
+
