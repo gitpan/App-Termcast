@@ -34,7 +34,7 @@ stream_ttyrec - play a ttyrec to a termcast channel
 
 =head1 VERSION
 
-version 0.08
+version 0.09
 
 =head1 SYNOPSIS
 

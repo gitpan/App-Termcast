@@ -20,7 +20,7 @@ requires:
   Term::ReadKey: 0
 resources:
   repository: git://github.com/doy/app-termcast.git
-version: 0.08
+version: 0.09
 x_Dist_Zilla:
   plugins:
     -

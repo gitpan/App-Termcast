@@ -1,6 +1,6 @@
 package App::Termcast;
 BEGIN {
-  $App::Termcast::VERSION = '0.08';
+  $App::Termcast::VERSION = '0.09';
 }
 use Moose;
 # ABSTRACT: broadcast your terminal sessions for remote viewing
@@ -192,12 +192,22 @@ sub run {
 
     $self->pty->spawn(@cmd) || die "Couldn't spawn @cmd: $!";
 
-    local $SIG{WINCH} = sub { $self->_got_winch(1) };
+    local $SIG{WINCH} = sub {
+        $self->_got_winch(1);
+        $self->pty->slave->clone_winsize_from(\*STDIN);
+        $self->pty->kill('WINCH', 1);
+    };
+
     while (1) {
         my ($rin, $win, $ein) = $self->_build_select_args;
         my ($rout, $wout, $eout);
         my $select_res = select($rout = $rin, undef, $eout = $ein, undef);
-        redo if $select_res == -1 && ($!{EAGAIN} || $!{EINTR});
+        my $again = $!{EAGAIN} || $!{EINTR};
+
+        if (($select_res == -1 && $again) || $self->_got_winch) {
+            $self->_got_winch(0);
+            redo;
+        }
 
         if ($self->_socket_ready($eout)) {
             $self->clear_socket;
@@ -207,10 +217,6 @@ sub run {
             my $buf;
             sysread STDIN, $buf, 4096;
             if (!defined $buf || length $buf == 0) {
-                if ($self->_got_winch) {
-                    $self->_got_winch(0);
-                    redo;
-                }
                 Carp::croak("Error reading from stdin: $!")
                     unless defined $buf;
                 last;
@@ -276,7 +282,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.08
+version 0.09
 
 =head1 SYNOPSIS
 
