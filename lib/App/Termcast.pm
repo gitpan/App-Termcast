@@ -1,6 +1,6 @@
 package App::Termcast;
 BEGIN {
-  $App::Termcast::VERSION = '0.09';
+  $App::Termcast::VERSION = '0.10';
 }
 use Moose;
 # ABSTRACT: broadcast your terminal sessions for remote viewing
@@ -11,6 +11,8 @@ use IO::Pty::Easy;
 use IO::Socket::INET;
 use Scope::Guard;
 use Term::ReadKey;
+use Try::Tiny;
+use JSON;
 
 
 
@@ -71,6 +73,7 @@ has _got_winch => (
     init_arg => undef,
 );
 
+
 has establishment_message => (
     traits     => ['NoGetopt'],
     is         => 'ro',
@@ -83,6 +86,23 @@ sub _build_establishment_message {
     return sprintf("hello %s %s\n", $self->user, $self->password);
 }
 
+sub _termsize {
+    return try { GetTerminalSize() } catch { (undef, undef) };
+}
+
+
+sub termsize_message {
+    my $self = shift;
+
+    my ($cols, $lines) = $self->_termsize;
+
+    return '' unless $cols && $lines;
+
+    return $self->_form_metadata_string(
+        geometry => [ $cols, $lines ],
+    );
+}
+
 has socket => (
     traits     => ['NoGetopt'],
     is         => 'rw',
@@ -90,6 +110,15 @@ has socket => (
     lazy_build => 1,
     init_arg   => undef,
 );
+
+sub _form_metadata_string {
+    my $self = shift;
+    my %data = @_;
+
+    my $json = JSON::encode_json(\%data);
+
+    return "\e[H\x00$json\xff\e[H\e[2J";
+}
 
 sub _build_socket {
     my $self = shift;
@@ -105,13 +134,46 @@ sub _build_socket {
         }
     }
 
-    $socket->syswrite($self->establishment_message);
+    $socket->syswrite($self->establishment_message . $self->termsize_message);
+
+    # ensure the server accepted our connection info
+    # can't use _build_select_args, since that would cause recursion
+    {
+        my ($rin, $ein, $rout, $eout) = ('') x 4;
+        vec($rin, fileno($socket), 1) = 1;
+        vec($ein, fileno($socket), 1) = 1;
+        my $res = select($rout = $rin, undef, $eout = $ein, undef);
+        redo if ($!{EAGAIN} || $!{EINTR}) && $res == -1;
+        if (vec($eout, fileno($socket), 1)) {
+            Carp::croak("Invalid password");
+        }
+        elsif (vec($rout, fileno($socket), 1)) {
+            my $buf;
+            $socket->recv($buf, 4096);
+            if (!defined $buf || length $buf == 0) {
+                Carp::croak("Invalid password");
+            }
+            elsif ($buf ne ('hello, ' . $self->user . "\n")) {
+                Carp::carp("Unknown login response from server: $buf");
+            }
+        }
+    }
+
+    ReadMode 5 if $self->_raw_mode;
     return $socket;
 }
 
 before clear_socket => sub {
+    my $self = shift;
     Carp::carp("Lost connection to server ($!), reconnecting...");
+    ReadMode 0 if $self->_raw_mode;
 };
+
+sub _new_socket {
+    my $self = shift;
+    $self->clear_socket;
+    $self->socket;
+}
 
 has pty => (
     traits     => ['NoGetopt'],
@@ -124,6 +186,30 @@ has pty => (
 sub _build_pty {
     IO::Pty::Easy->new(raw => 0);
 }
+
+has _raw_mode => (
+    traits  => ['NoGetopt'],
+    is      => 'rw',
+    isa     => 'Bool',
+    default => 0,
+    trigger => sub {
+        my $self = shift;
+        my ($val) = @_;
+        if ($val) {
+            ReadMode 5;
+        }
+        else {
+            ReadMode 0;
+        }
+    },
+);
+
+has _needs_termsize_update => (
+    traits  => ['NoGetopt'],
+    is      => 'rw',
+    isa     => 'Bool',
+    default => 0,
+);
 
 sub _build_select_args {
     my $self = shift;
@@ -179,6 +265,12 @@ sub write_to_termcast {
         $self->clear_socket;
         return $self->write_to_termcast(@_);
     }
+
+    if ($self->_needs_termsize_update) {
+        $buf = $self->termsize_message . $buf;
+        $self->_needs_termsize_update(0);
+    }
+
     $self->socket->syswrite($buf);
 }
 
@@ -187,15 +279,23 @@ sub run {
     my $self = shift;
     my @cmd = @_;
 
-    ReadMode 5;
-    my $guard = Scope::Guard->new(sub { ReadMode 0 });
+    $self->socket;
+
+    $self->_raw_mode(1);
+    my $guard = Scope::Guard->new(sub { $self->_raw_mode(0) });
 
     $self->pty->spawn(@cmd) || die "Couldn't spawn @cmd: $!";
 
     local $SIG{WINCH} = sub {
         $self->_got_winch(1);
         $self->pty->slave->clone_winsize_from(\*STDIN);
+
         $self->pty->kill('WINCH', 1);
+
+        syswrite STDOUT, "\e[H\e[2J"; # for the sake of sending a
+                                      # clear to the client anyway
+
+        $self->_needs_termsize_update(1);
     };
 
     while (1) {
@@ -210,7 +310,7 @@ sub run {
         }
 
         if ($self->_socket_ready($eout)) {
-            $self->clear_socket;
+            $self->_new_socket;
         }
 
         if ($self->_in_ready($rout)) {
@@ -228,10 +328,6 @@ sub run {
         if ($self->_pty_ready($rout)) {
             my $buf = $self->pty->read(0);
             if (!defined $buf || length $buf == 0) {
-                if ($self->_got_winch) {
-                    $self->_got_winch(0);
-                    redo;
-                }
                 Carp::croak("Error reading from pty: $!")
                     unless defined $buf;
                 last;
@@ -246,13 +342,8 @@ sub run {
             my $buf;
             $self->socket->recv($buf, 4096);
             if (!defined $buf || length $buf == 0) {
-                if ($self->_got_winch) {
-                    $self->_got_winch(0);
-                    redo;
-                }
-
                 if (defined $buf) {
-                    $self->clear_socket;
+                    $self->_new_socket;
                 }
                 else {
                     Carp::croak("Error reading from socket: $!");
@@ -282,7 +373,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.09
+version 0.10
 
 =head1 SYNOPSIS
 
@@ -329,6 +420,16 @@ How long in seconds to use for the timeout to the termcast server. Defaults to
 
 =head1 METHODS
 
+=head2 establishment_message
+
+Returns the string sent to the termcast server when connecting (typically
+containing the username and password)
+
+=head2 termsize_message
+
+Returns the string sent to the termcast server whenever the terminal size
+changes.
+
 =head2 write_to_termcast $BUF
 
 Sends C<$BUF> to the termcast server.
@@ -352,6 +453,8 @@ C<bug-app-termcast at rt.cpan.org>, or browse to
 L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=App-Termcast>.
 
 =head1 SEE ALSO
+
+Please see those modules/websites for more information related to this module.
 
 =over 4
 
@@ -395,7 +498,7 @@ Jesse Luehrs <doy at tozt dot net>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2010 by Jesse Luehrs.
+This software is copyright (c) 2011 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -10,11 +10,11 @@ bin/termcast
 dist.ini
 lib/App/Termcast.pm
 t/00-compile.t
-t/01-basic.t
-t/02-read-write.t
-t/03-write-to-termcast.t
+t/basic.t
+t/read-write.t
 t/release-eol.t
 t/release-no-tabs.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t
+t/write-to-termcast.t
 weaver.ini

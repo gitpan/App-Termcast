@@ -11,7 +11,10 @@ use ExtUtils::MakeMaker 6.31;
 my %WriteMakefileArgs = (
   'ABSTRACT' => 'broadcast your terminal sessions for remote viewing',
   'AUTHOR' => 'Jesse Luehrs <doy at tozt dot net>',
-  'BUILD_REQUIRES' => {},
+  'BUILD_REQUIRES' => {
+    'Test::More' => '0.88',
+    'Test::Requires' => '0'
+  },
   'CONFIGURE_REQUIRES' => {
     'ExtUtils::MakeMaker' => '6.31'
   },
@@ -24,12 +27,14 @@ my %WriteMakefileArgs = (
   'NAME' => 'App::Termcast',
   'PREREQ_PM' => {
     'IO::Pty::Easy' => '0.07',
+    'JSON' => '0',
     'Moose' => '0',
     'MooseX::Getopt' => '0',
     'Scope::Guard' => '0',
-    'Term::ReadKey' => '0'
+    'Term::ReadKey' => '0',
+    'Try::Tiny' => '0'
   },
-  'VERSION' => '0.09',
+  'VERSION' => '0.10',
   'test' => {
     'TESTS' => 't/*.t'
   }

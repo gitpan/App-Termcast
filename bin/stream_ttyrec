@@ -34,7 +34,7 @@ stream_ttyrec - play a ttyrec to a termcast channel
 
 =head1 VERSION
 
-version 0.09
+version 0.10
 
 =head1 SYNOPSIS
 
@@ -48,11 +48,13 @@ See L<App::Termcast> for options documentation.
 
 =head1 SEE ALSO
 
+Please see those modules/websites for more information related to this module.
+
 =over 4
 
 =item *
 
-L<App::Termcast>
+L<App::Termcast|App::Termcast>
 
 =back
 
@@ -62,7 +64,7 @@ Jesse Luehrs <doy at tozt dot net>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2010 by Jesse Luehrs.
+This software is copyright (c) 2011 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
