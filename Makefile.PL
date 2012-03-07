@@ -4,39 +4,46 @@ use warnings;
 
 
 
-use ExtUtils::MakeMaker 6.31;
+use ExtUtils::MakeMaker 6.30;
 
 
 
 my %WriteMakefileArgs = (
-  'ABSTRACT' => 'broadcast your terminal sessions for remote viewing',
-  'AUTHOR' => 'Jesse Luehrs <doy at tozt dot net>',
-  'BUILD_REQUIRES' => {
-    'Test::More' => '0.88',
-    'Test::Requires' => '0'
+  "ABSTRACT" => "broadcast your terminal sessions for remote viewing",
+  "AUTHOR" => "Jesse Luehrs <doy at tozt dot net>",
+  "BUILD_REQUIRES" => {
+    "File::Find" => 0,
+    "File::Temp" => 0,
+    "Test::More" => "0.88",
+    "Test::Requires" => 0
   },
-  'CONFIGURE_REQUIRES' => {
-    'ExtUtils::MakeMaker' => '6.31'
+  "CONFIGURE_REQUIRES" => {
+    "ExtUtils::MakeMaker" => "6.30"
   },
-  'DISTNAME' => 'App-Termcast',
-  'EXE_FILES' => [
-    'bin/stream_ttyrec',
-    'bin/termcast'
+  "DISTNAME" => "App-Termcast",
+  "EXE_FILES" => [
+    "bin/stream_ttyrec",
+    "bin/termcast"
   ],
-  'LICENSE' => 'perl',
-  'NAME' => 'App::Termcast',
-  'PREREQ_PM' => {
-    'IO::Pty::Easy' => '0.07',
-    'JSON' => '0',
-    'Moose' => '0',
-    'MooseX::Getopt' => '0',
-    'Scope::Guard' => '0',
-    'Term::ReadKey' => '0',
-    'Try::Tiny' => '0'
+  "LICENSE" => "perl",
+  "NAME" => "App::Termcast",
+  "PREREQ_PM" => {
+    "Getopt::Long" => 0,
+    "IO::Select" => 0,
+    "IO::Socket::INET" => 0,
+    "JSON" => 0,
+    "Moose" => 0,
+    "MooseX::Getopt::Dashes" => 0,
+    "Scalar::Util" => 0,
+    "Term::Filter::Callback" => 0,
+    "Term::ReadKey" => 0,
+    "Try::Tiny" => 0,
+    "strict" => 0,
+    "warnings" => 0
   },
-  'VERSION' => '0.10',
-  'test' => {
-    'TESTS' => 't/*.t'
+  "VERSION" => "0.11",
+  "test" => {
+    "TESTS" => "t/*.t"
   }
 );
 
