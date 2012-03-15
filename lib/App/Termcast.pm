@@ -3,7 +3,7 @@ BEGIN {
   $App::Termcast::AUTHORITY = 'cpan:DOY';
 }
 {
-  $App::Termcast::VERSION = '0.11';
+  $App::Termcast::VERSION = '0.12';
 }
 use Moose;
 # ABSTRACT: broadcast your terminal sessions for remote viewing
@@ -178,14 +178,16 @@ sub _build_socket {
 before clear_socket => sub {
     my $self = shift;
     Carp::carp("Lost connection to server ($!), reconnecting...");
+    $self->socket->close;
     ReadMode(0, $self->input)
         if $self->_has_term && $self->_term->_raw_mode;
 };
 
 sub _new_socket {
     my $self = shift;
+    $self->_term->remove_input_handle($self->socket);
     $self->clear_socket;
-    $self->socket;
+    $self->_term->add_input_handle($self->socket);
 }
 
 has _needs_termsize_update => (
@@ -305,7 +307,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.11
+version 0.12
 
 =head1 SYNOPSIS
 
