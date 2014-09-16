@@ -2,9 +2,7 @@ package App::Termcast;
 BEGIN {
   $App::Termcast::AUTHORITY = 'cpan:DOY';
 }
-{
-  $App::Termcast::VERSION = '0.12';
-}
+$App::Termcast::VERSION = '0.13';
 use Moose;
 # ABSTRACT: broadcast your terminal sessions for remote viewing
 
@@ -113,7 +111,7 @@ sub _form_metadata_string {
 
     my $json = JSON::encode_json(\%data);
 
-    return "\e[H\x00$json\xff\e[H\e[2J";
+    return "\e]499;$json\x07";
 }
 
 sub _build_socket {
@@ -299,7 +297,10 @@ no Moose;
 1;
 
 __END__
+
 =pod
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -307,7 +308,7 @@ App::Termcast - broadcast your terminal sessions for remote viewing
 
 =head1 VERSION
 
-version 0.12
+version 0.13
 
 =head1 SYNOPSIS
 
@@ -382,9 +383,8 @@ Use L<MooseX::SimpleConfig> to make configuration easier.
 
 No known bugs.
 
-Please report any bugs through RT: email
-C<bug-app-termcast at rt.cpan.org>, or browse to
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=App-Termcast>.
+Please report any bugs to GitHub Issues at
+L<https://github.com/doy/app-termcast/issues>.
 
 =head1 SEE ALSO
 
@@ -400,34 +400,33 @@ You can also look for information at:
 
 =over 4
 
-=item * AnnoCPAN: Annotated CPAN documentation
+=item * MetaCPAN
 
-L<http://annocpan.org/dist/App-Termcast>
+L<https://metacpan.org/release/App-Termcast>
 
-=item * CPAN Ratings
+=item * Github
 
-L<http://cpanratings.perl.org/d/App-Termcast>
+L<https://github.com/doy/app-termcast>
 
 =item * RT: CPAN's request tracker
 
 L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=App-Termcast>
 
-=item * Search CPAN
+=item * CPAN Ratings
 
-L<http://search.cpan.org/dist/App-Termcast>
+L<http://cpanratings.perl.org/d/App-Termcast>
 
 =back
 
 =head1 AUTHOR
 
-Jesse Luehrs <doy at tozt dot net>
+Jesse Luehrs <doy@tozt.net>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 by Jesse Luehrs.
+This software is copyright (c) 2014 by Jesse Luehrs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
-
